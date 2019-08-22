@@ -1,0 +1,409 @@
+unit Unit1;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, StdCtrls, Math, TeEngine, Series, ExtCtrls, TeeProcs, Chart,
+  BubbleCh, ComCtrls;
+
+type
+  com = record
+          re, im: real; //Создание действительной (Re) и мнимой (Im) частей
+        end;
+  TForm1 = class(TForm)
+    Edit1: TEdit;
+    Button1: TButton;
+    Button2: TButton;
+    Label1: TLabel;
+    Label2: TLabel;
+    Memo1: TMemo;
+    Chart1: TChart;
+    Series1: TLineSeries;
+    Series2: TLineSeries;
+    Series3: TPointSeries;
+    Label4: TLabel;
+    Panel1: TPanel;
+    Label3: TLabel;
+    Label5: TLabel;
+    Label6: TLabel;
+    Label7: TLabel;
+    procedure Edit1Change(Sender: TObject);
+    procedure Button1Click(Sender: TObject);
+    procedure Button2Click(Sender: TObject);
+
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+const
+  cf = ['0'..'9', ',', '-', '.'];
+  min = -50;
+  max = 50;
+
+type
+   TArr= array of real;
+
+var
+  Form1: TForm1;
+  S, S1: string;
+  dl: integer;
+
+implementation
+
+{$R *.dfm}
+
+procedure TForm1.Edit1Change(Sender: TObject);
+begin
+  S:=Edit1.Text;
+end;
+
+//Комплексное СЛОЖЕНИЕ
+function ad(a,b:com):com;
+begin
+  Result.re := a.re + b.re;
+  Result.im := a.im + b.im;
+end;
+
+//Комплексное ВЫЧИТАНИЕ
+function su(a,b:com):com;
+begin
+  Result.re := a.re - b.re;
+  Result.im := a.im - b.im;
+end;
+
+//УМНОЖЕНИЕ КОМПЛЕКСНОГО числа на ДЕЙСТВИТЕЛЬНОЕ
+function muld(a:com; b:real):com;
+begin
+  Result.re := a.re * b;
+  Result.im := a.im * b;
+end;
+
+//УМНОЖЕНИЕ двух комплексных чисел
+function mu(a,b:com):com;
+begin
+  Result.re := a.re*b.re - a.im*b.im;
+  Result.im := a.re*b.im + a.im*b.re;
+end;
+
+//ДЕЛЕНИЕ комплексных чисел
+function di(b,a:com):com;
+var
+  d:real;//Делитель
+begin
+  d := sqr(a.re) + sqr(a.im);
+  if d = 0 then
+  begin
+    result.re := 0;
+    result.im := 0;
+  end
+  else
+  begin
+    Result.re := (b.re*a.re + b.im*a.im)/d;
+    Result.im := (a.re*b.im - b.re*a.im)/d;
+  end;
+end;
+
+//Деление комплексного числа на действительное
+function did(b:com; a:real):com;
+begin
+  Result.re := b.re/a;
+  Result.im := b.im/a;
+end;
+
+//МОДУЛЬ комплексного числа
+function AbsCom(z:com):real;
+begin
+  Result := sqrt(sqr(z.re) + sqr(z.im));
+end;
+
+//ВОЗВЕДЕНИЕ В СТЕПЕНЬ комплексного числа
+function pow(a:com; n:integer):com;
+Var
+  i: integer;
+begin
+//Если число возводится в нулевую степень
+  if n=0 then
+  begin
+    Result.re := 1;
+    Result.im := 0;
+  end;
+
+//Если число возводится в первую степень
+  if n=1 then Result := a;
+
+  if n>1 then
+  begin
+    Result := a;
+    for i := 2 to n do
+      Result := mu(Result, a);
+  end;
+end;
+
+//Формирование КОМПЛЕКСНОЙ функции
+function funcz(X: com; Mas_k: array of real; por: integer):com;
+Var
+  i: integer;
+begin
+  result.re := 0;
+  result.im := 0;
+  for i:=0 to por do
+  begin
+    Result := ad(Result, muld(pow(X,i), Mas_k[i]));
+  end;
+end;
+
+//Формирование действительной функции
+function func(X: real; Mas_k: array of real; por: integer): Extended;
+Var
+  i: integer;
+begin
+  result := 0;
+  for i:=0 to por do
+  Result := Result + Mas_k[i]*power(X,i);
+end;
+
+//Формирование ПРОИЗВОДНОЙ КОМПЛЕКСНОЙ ФУНКЦИИ
+function dfuncz(X: com; Mas_k: array of real; por: integer): com;
+Var
+  i:integer;
+  Mas_pr: array of real;
+begin
+  SetLength(Mas_pr, length(Mas_k)-1);
+  for i:=1 to por do
+  begin
+    Mas_pr[i-1] := Mas_k[i]*i;
+  end;
+
+  result := funcz(X, Mas_pr, por-1);
+end;
+
+//ПЕРВАЯ ПРОИЗВОДНАЯ действительной функции
+function dfunc(X: real; Mas_k: array of real; por: integer): Extended;
+Var
+  i:integer;
+begin
+  Result := 0;
+  for i:=0 to por do
+  Result := Result + Mas_k[i]*power(X,i-1)*i;
+end;
+
+//ВТОРАЯ ПРОИЗВОДНАЯ действительной функции
+function d2func(X: real; Mas_k: array of real; por: integer): Extended;
+Var
+  i:integer;
+begin
+  Result := 0;
+  for i:=0 to por do
+  Result := Result+Mas_k[i]*power(X,i-2)*i*(i-1);
+end;
+
+//Деление многочленов
+function DelMn(A: array of real; por1: integer; B: array of real; por2: integer): TArr;
+Var
+  q: TArr;
+  i, k: byte;
+begin
+  if por1<>0 then
+  begin
+    SetLength(q, por1 - por2 + 1);
+    for k:=por1 - por2 downto 0 do
+    begin
+      q[k] := a[por2 + k]/b[por2];
+      for i := por2 + k - 1 downto k do
+        a[i] := a[i] - q[k]*b[i-k];
+    end;
+    result := q;
+  end else result := 0;
+end;
+
+
+//"ГОТОВО"
+procedure TForm1.Button1Click(Sender: TObject);
+var
+  i, j, k, por, por1: integer;
+  rootz, rootz0, r, r2: com;
+  h, X, a, b, c, root, pogr, min, max, r_min_X, r_min_Y, r_max_X, r_max_Y: real;
+  count, prov: byte;
+  Mas_rootz: array of real;
+  Mas_k, Mas_kbuf: TArr;
+  New_pol: TArr;
+  Mint: array of array [0..1] of real;
+begin
+  i := 0;
+  for j:=0 to length(s) do
+  begin
+    if s[j] in cf then
+    begin
+      if s[j]='.' then
+      s1:=s1+',' else
+      s1:=s1+s[j];
+    end;
+    if s[j]=' ' then
+    begin
+      SetLength(Mas_kbuf, length(Mas_kbuf)+1);
+      Mas_kbuf[i]:=StrToFloat(s1);
+      i:=i+1;
+      delete(s1,1,length(s1));
+    end;
+  end;
+  SetLength(Mas_kbuf, length(Mas_kbuf)+1);
+  Mas_kbuf[length(Mas_kbuf)-1] := StrToFloat(s1);
+  por := length(Mas_kbuf)-1;
+  delete(s1, 1, length(s1));
+  SetLength(Mas_k, por+1);
+  j:=por;
+  for i:=0 to length(Mas_k)-1 do
+  begin
+    Mas_k[i]:=Mas_kbuf[j];
+    j:=j-1;
+  end;
+  //Очистка всей полей
+  Memo1.Clear;
+  Series1.Clear;
+  Series2.Clear;
+  Series3.Clear;
+  h := 0.001; //Шаг
+  X := min;
+  count := 0;
+  prov:=0;
+
+  //Реализация метода касательных (Ньютона)
+  //для нахождения корней действительного уравнения
+
+  while X <= max do
+  begin
+    if (func(X, Mas_k, por) * func(X + h, Mas_k, por) < 0) then
+    begin
+      count := count + 1;
+      setlength(Mint, count);
+      Mint[count - 1][0] := X;
+      Mint[count - 1][1] := X + h;
+    end
+    else if (func(X, Mas_k, por) * func(X + h, Mas_k, por) = 0) then
+    begin
+      count := count + 1;
+      setlength(Mint, count);
+      Mint[count - 1][0] := X;
+      Mint[count - 1][1] := X + h / 2;
+      X := X + h;
+    end;
+    X := RoundTo(X + h, -4);
+  end;
+
+  for i := 0 to count - 1 do
+  begin
+    a := Mint[i][0];
+    b := Mint[i][1];
+    if func(a, Mas_k, por) * d2func(a, Mas_k, por) > 0 then
+      c := a
+    else
+      c := b;
+    while True do
+    begin
+      root := c - func(c, Mas_k, por) / dfunc(c, Mas_k, por);
+      if abs(root - c) < h then
+        break
+      else
+        c := root;
+    end;
+    if root>0 then prov:=1;
+    if root=0 then prov:=2;
+    Memo1.lines[i] := 'X[' + inttostr(i + 1) + ']= ' + floattostr(RoundTo(root, -4))+';';
+    Memo1.lines.Add('');
+    Series3.AddXY(root, 0, '', clRed);
+  end;
+
+  //Нахождение КОМПЛЕКСНЫХ корней по методу Ньютона
+  por1:=por;
+  if count<por1 then
+  begin
+    while count<por1 do
+    begin
+      rootz0.re:=1;
+      rootz0.im:=1;
+      r:=dfuncz(rootz0, Mas_k, por);
+      r2:= funcz(rootz0, Mas_k, por);
+      rootz:=su(rootz0,di(r2, r));
+      pogr:=AbsCom(su(rootz,rootz0));
+      while pogr > h do
+      begin
+        rootz0:=rootz;
+        rootz:=su(rootz, di(funcz(rootz, Mas_k, por), dfuncz(rootz, Mas_k, por)));
+        pogr:=AbsCom(su(rootz, rootz0));
+      end;
+      if rootz.re>r_max_X then
+      r_max_X:=Abs(rootz.re);
+      if rootz.re<r_min_X then
+      r_min_X:=-Abs(rootz.re);
+      if rootz.im>r_max_Y then
+      r_max_Y:=Abs(rootz.im);
+      if rootz.im<r_min_Y then
+      r_min_Y:=-Abs(rootz.im);
+      Series3.AddXY(rootz.re, rootz.im, '', clRed);
+      Series3.AddXY(rootz.re, -rootz.im, '', clRed);
+
+      //Формирование нового полинома
+      SetLength(Mas_rootz, 3);
+      Mas_rootz[2]:=1;
+      Mas_rootz[1]:=-2*rootz.re;
+      Mas_rootz[0]:=sqr(rootz.re)+sqr(rootz.im);
+      if rootz.re>0 then prov:=1;
+      if RoundTo(rootz.re,-4)=0 then prov:=2;
+      //Вывод найденных корней
+      if rootz.re>=0 then
+      begin
+        Memo1.lines.Add('');
+        Memo1.lines[count] := 'X[' + inttostr(count + 1) + ']= ' + floattostr(RoundTo(rootz.re, -4))+ ' + i·' + floattostr(Abs(RoundTo(rootz.im, -4)))+';';
+        Memo1.lines.Add('');
+        Memo1.lines[count+1] := 'X[' + inttostr(count + 2) + ']= ' + floattostr(RoundTo(rootz.re, -4))+ ' – i·' + floattostr(Abs(RoundTo(rootz.im, -4)))+';';
+        Memo1.lines.Add('');
+      end
+        else
+      begin
+        Memo1.lines.Add('');
+        Memo1.lines[count] := 'X[' + inttostr(count + 1) + ']= –' + floattostr(RoundTo(Abs(rootz.re), -4))+ ' + i·' + floattostr(Abs(RoundTo(rootz.im, -4)))+';';
+        Memo1.lines.Add('');
+        Memo1.lines[count+1] := 'X[' + inttostr(count + 2) + ']= –' + floattostr(RoundTo(Abs(rootz.re), -4))+ ' – i·' + floattostr(Abs(RoundTo(rootz.im, -4)))+';';
+        Memo1.lines.Add('');
+      end;
+      //============================================================================
+      count:=count+2;
+      Mas_k:=Delmn(Mas_k, por, Mas_rootz, 2);
+      por:=por-count;
+    end;
+    for i := (-Trunc(Abs(r_max_X)+2)) to (Trunc(Abs(r_max_X)+2)) do // Проведение координатных осей
+    Series1.AddXY(i, 0, '', clBlack);
+    for i := (-Trunc(Abs(r_max_Y)+2)) to (Trunc(Abs(r_max_Y)+2)) do // Проведение координатных осей
+    Series2.AddXY(0, i, '', clBlack);
+  end;
+    Memo1.lines.Add('');
+    if prov=0 then
+    begin
+      Memo1.Font.Color:=clGreen;
+      Memo1.lines[count] := 'Система является устойчивой.';
+    end;
+    if prov=1 then
+    begin
+      Memo1.Font.Color:=clRed;
+      Memo1.lines[count] := 'Система не является устойчивой.';
+    end;
+    if prov=2 then
+    begin
+      Memo1.Font.Color:=clOlive;
+      Memo1.lines[count] := 'Система находится на грани устойчивости.';
+    end;
+end;
+
+//"ОЧИСТИТЬ"
+procedure TForm1.Button2Click(Sender: TObject);
+begin
+  Memo1.Clear;
+  Edit1.Clear;
+  Series1.Clear;
+  Series2.Clear;
+  Series3.Clear;
+end;
+
+end.
